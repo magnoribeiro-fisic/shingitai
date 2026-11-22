@@ -1,0 +1,26 @@
+name: Repost riibeiro -> brap
+on:
+  schedule:
+    - cron: '47 10 * * *'   # 07:47 Brasilia
+    - cron: '47 20 * * *'   # 17:47 Brasilia
+    - cron: '47 23 * * *'   # 20:47 Brasilia
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: repost-brap
+jobs:
+  repost:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: sudo apt-get install -y -qq ffmpeg > /dev/null
+      - run: pip install -q requests pillow imagehash google-auth yt-dlp
+      - run: python robo-repost/repost.py
+        env:
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+          INSTAGRAM_BRAP_ID: ${{ secrets.INSTAGRAM_BRAP_ID }}
+          GCP_SA_JSON: ${{ secrets.GCP_SA_JSON }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
