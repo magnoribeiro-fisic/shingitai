@@ -2,21 +2,24 @@
 """Robo de repost @magno.riibeiro -> @magno.brap (SHIN GI TAI). Roda no GitHub Actions, sem IA.
 Fila: Firestore shingitai_repost_brap (status pendente; legenda pronta em 'legenda_pronta').
 Video hospedado por alguns minutos num branch temporario (tmp-video) e buscado pela Meta via video_url.
-Segredos: META_ACCESS_TOKEN, INSTAGRAM_BRAP_ID, GCP_SA_JSON."""
+Sem segredos no GitHub: login no Google por Workload Identity Federation (sem chave);
+token da Meta lido do Firestore config_privada/repost_brap."""
 import os, io, json, time, subprocess, tempfile, datetime, requests, imagehash
 from PIL import Image
-from google.oauth2 import service_account
+import google.auth
 from google.auth.transport.requests import Request
 
-T = os.environ['META_ACCESS_TOKEN']; BRAP = os.environ['INSTAGRAM_BRAP_ID']
 G = 'https://graph.facebook.com/v24.0'
 REPO = os.environ['GITHUB_REPOSITORY']
 PUSH = os.environ.get('PUSH_URL') or f"https://x-access-token:{os.environ['GITHUB_TOKEN']}@github.com/{REPO}"
-cr = service_account.Credentials.from_service_account_info(json.loads(os.environ['GCP_SA_JSON']),
-                                                            scopes=['https://www.googleapis.com/auth/datastore'])
+cr, _proj = google.auth.default(scopes=['https://www.googleapis.com/auth/datastore'])
 cr.refresh(Request())
-FS = f'https://firestore.googleapis.com/v1/projects/{cr.project_id}/databases/(default)/documents/shingitai_repost_brap'
+PROJ = os.environ.get('GCP_PROJECT') or _proj
+FB = f'https://firestore.googleapis.com/v1/projects/{PROJ}/databases/(default)/documents'
+FS = f'{FB}/shingitai_repost_brap'
 FH = {'Authorization': 'Bearer ' + cr.token}
+_cfg = requests.get(f'{FB}/config_privada/repost_brap', headers=FH, timeout=60).json()['fields']
+T = _cfg['META_ACCESS_TOKEN']['stringValue']; BRAP = _cfg['INSTAGRAM_BRAP_ID']['stringValue']
 WORK = tempfile.mkdtemp()
 
 

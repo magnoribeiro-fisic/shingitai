@@ -7,6 +7,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: write
+  id-token: write   # login no Google sem chave (Workload Identity Federation)
 concurrency: repost-brap
 jobs:
   repost:
@@ -14,13 +15,15 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/348938527666/locations/global/workloadIdentityPools/github/providers/shingitai
+          service_account: robo-repost@project-ca1348c0-fd1f-46bf-b8c.iam.gserviceaccount.com
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
       - run: sudo apt-get install -y -qq ffmpeg > /dev/null
       - run: pip install -q requests pillow imagehash google-auth yt-dlp
       - run: python robo-repost/repost.py
         env:
-          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
-          INSTAGRAM_BRAP_ID: ${{ secrets.INSTAGRAM_BRAP_ID }}
-          GCP_SA_JSON: ${{ secrets.GCP_SA_JSON }}
+          GCP_PROJECT: project-ca1348c0-fd1f-46bf-b8c
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
