@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Robo de entrega de video bruto (SHIN GI TAI).
 Baixa um video da pasta PARA EDITAR do Drive (login sem chave, Workload Identity Federation),
-criptografa com a chave publica do repositorio (so o Claude tem a chave privada) e entrega
+criptografa com a chave publica que o Claude gera na conversa (a privada nunca sai de la) e entrega
 como artifact temporario do GitHub Actions. O repositorio e publico, por isso o video
 NUNCA sai sem criptografia."""
 import os, sys, subprocess, requests, google.auth
@@ -32,10 +32,11 @@ with requests.get(f"{D}/{m['id']}", headers=H, params={'alt': 'media'}, stream=T
     r.raise_for_status()
     with open('video.bin', 'wb') as f:
         for ch in r.iter_content(1 << 20): f.write(ch)
+open('pub.pem', 'w').write(os.environ['CHAVE_PUBLICA'].replace('\\n', '\n'))
 chave = os.urandom(32).hex()
 open('chave.txt', 'w').write(chave)
 subprocess.run(['openssl', 'enc', '-aes-256-cbc', '-pbkdf2', '-salt', '-in', 'video.bin', '-out', 'saida/video.enc', '-pass', 'file:chave.txt'], check=True)
-subprocess.run(['openssl', 'pkeyutl', '-encrypt', '-pubin', '-inkey', 'robo-video/chave_publica.pem',
+subprocess.run(['openssl', 'pkeyutl', '-encrypt', '-pubin', '-inkey', 'pub.pem',
                 '-pkeyopt', 'rsa_padding_mode:oaep', '-pkeyopt', 'rsa_oaep_md:sha256',
                 '-in', 'chave.txt', '-out', 'saida/chave.enc'], check=True)
 open('saida/nome.txt', 'w').write(m['name'])

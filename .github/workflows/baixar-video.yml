@@ -5,6 +5,9 @@ on:
       video:
         description: 'ID ou nome do video na pasta PARA EDITAR'
         required: true
+      chave_publica:
+        description: 'Chave publica RSA (PEM) gerada pelo Claude na conversa'
+        required: true
 permissions:
   contents: write
   id-token: write   # login no Google sem chave (Workload Identity Federation)
@@ -24,6 +27,7 @@ jobs:
       - run: python robo-video/baixar.py
         env:
           VIDEO: ${{ inputs.video }}
+          CHAVE_PUBLICA: ${{ inputs.chave_publica }}
       - name: Entregar em branch temporario (somente arquivos criptografados)
         run: |
           cd saida && split -b 45m -d video.enc video.enc.part && rm video.enc
