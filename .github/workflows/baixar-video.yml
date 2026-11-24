@@ -1,0 +1,32 @@
+name: Baixar video para edicao
+on:
+  workflow_dispatch:
+    inputs:
+      video:
+        description: 'ID ou nome do video na pasta PARA EDITAR'
+        required: true
+permissions:
+  contents: read
+  id-token: write   # login no Google sem chave (Workload Identity Federation)
+jobs:
+  baixar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/348938527666/locations/global/workloadIdentityPools/github/providers/shingitai
+          service_account: robo-repost@project-ca1348c0-fd1f-46bf-b8c.iam.gserviceaccount.com
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install -q requests google-auth
+      - run: python robo-video/baixar.py
+        env:
+          VIDEO: ${{ inputs.video }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: video-criptografado
+          path: saida/
+          retention-days: 1
+          compression-level: 0
