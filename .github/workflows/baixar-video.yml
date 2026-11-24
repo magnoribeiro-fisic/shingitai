@@ -6,7 +6,7 @@ on:
         description: 'ID ou nome do video na pasta PARA EDITAR'
         required: true
 permissions:
-  contents: read
+  contents: write
   id-token: write   # login no Google sem chave (Workload Identity Federation)
 jobs:
   baixar:
@@ -24,9 +24,8 @@ jobs:
       - run: python robo-video/baixar.py
         env:
           VIDEO: ${{ inputs.video }}
-      - uses: actions/upload-artifact@v4
-        with:
-          name: video-criptografado
-          path: saida/
-          retention-days: 1
-          compression-level: 0
+      - name: Entregar em branch temporario (somente arquivos criptografados)
+        run: |
+          cd saida && split -b 45m -d video.enc video.enc.part && rm video.enc
+          git init -q -b entrega && git add . && git -c user.name=robo -c user.email=robo@shingitai commit -q -m "video ${{ github.run_id }}"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" entrega:video-${{ github.run_id }}
