@@ -1,0 +1,62 @@
+name: App de cursos (robo)
+on:
+  workflow_dispatch:
+    inputs:
+      acao:
+        description: 'configurar | publicar | importar'
+        required: true
+        default: publicar
+      pastas:
+        description: 'Para importar: JSON {"curso-id":"idDaPastaNoDrive"}'
+        required: false
+        default: '{}'
+  push:
+    branches: [main]
+    paths: ['app-servidor/**']
+permissions:
+  contents: read
+  id-token: write   # login no Google sem chave (Workload Identity Federation)
+concurrency: app-robo-${{ inputs.acao || 'publicar' }}
+env:
+  GCP_PROJECT: project-ca1348c0-fd1f-46bf-b8c
+  REGIAO: us-central1
+  BUCKET: shingitai-cursos-348938527666
+  IMAGEM: us-central1-docker.pkg.dev/project-ca1348c0-fd1f-46bf-b8c/app/app-cursos
+jobs:
+  robo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/348938527666/locations/global/workloadIdentityPools/github/providers/shingitai
+          service_account: robo-app@project-ca1348c0-fd1f-46bf-b8c.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install -q requests google-auth
+
+      - name: Configurar infraestrutura
+        if: inputs.acao == 'configurar'
+        run: python robo-app/configurar.py
+
+      - name: Publicar servidor
+        if: inputs.acao == 'publicar' || github.event_name == 'push'
+        run: |
+          gcloud auth configure-docker us-central1-docker.pkg.dev -q
+          docker build -t $IMAGEM:${{ github.sha }} app-servidor
+          docker push $IMAGEM:${{ github.sha }}
+          gcloud run deploy app-cursos --image $IMAGEM:${{ github.sha }} --region $REGIAO --project $GCP_PROJECT \
+            --service-account app-servidor@$GCP_PROJECT.iam.gserviceaccount.com --allow-unauthenticated \
+            --memory 512Mi --cpu 1 --min-instances 0 --max-instances 4 --concurrency 40 --timeout 60 \
+            --set-env-vars BUCKET=$BUCKET,APP_URL=https://magnoribeiro-fisic.github.io/shingitai/app/,SITE_URL=https://magnoribeiro-fisic.github.io/shingitai/ -q
+          curl -s "$(gcloud run services describe app-cursos --region $REGIAO --format='value(status.url)')/saude"
+
+      - name: Importar aulas do Drive
+        if: inputs.acao == 'importar'
+        env:
+          PASTAS: ${{ inputs.pastas }}
+        run: |
+          sudo apt-get install -y -qq ffmpeg > /dev/null
+          python robo-app/importar.py

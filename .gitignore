@@ -1,1 +1,3 @@
 __pycache__/
+node_modules/
+app-src/firebase-web.json
